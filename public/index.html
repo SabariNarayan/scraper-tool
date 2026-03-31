@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>CSR Scraper Tool</title>
+
+<style>
+body { font-family: Arial; padding: 20px; }
+textarea, input { width: 100%; margin: 8px 0; padding: 8px; }
+button { padding: 10px; cursor: pointer; }
+#output { height: 350px; }
+</style>
+</head>
+<body>
+
+<h2>🔎 CSR Scraper Tool (V2)</h2>
+
+<label>URLs (one per line)</label>
+<textarea id="urls"></textarea>
+
+<label>Link Filter (optional)</label>
+<input id="linkFilter" placeholder="e.g. nonprofit">
+
+<label>Image Filter (optional)</label>
+<input id="imageFilter" placeholder="e.g. logo">
+
+<button onclick="runScraper()">Run Scraper</button>
+
+<h3>Results</h3>
+<textarea id="output"></textarea>
+
+<script>
+async function runScraper() {
+    const urls = document.getElementById("urls").value
+        .split("\n")
+        .map(u => u.trim())
+        .filter(Boolean);
+
+    const linkFilter = document.getElementById("linkFilter").value;
+    const imageFilter = document.getElementById("imageFilter").value;
+
+    const res = await fetch("/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls, linkFilter, imageFilter })
+    });
+
+    const data = await res.json();
+
+    let output = "";
+
+    data.forEach(page => {
+        output += `\n===== ${page.url} =====\n`;
+
+        output += "\n--- LINKS ---\n";
+        output += page.links.join("\n");
+
+        output += "\n\n--- IMAGES ---\n";
+        output += page.images.join("\n");
+
+        output += "\n\n--- VIDEOS ---\n";
+
+        page.videos.forEach(v => {
+            output += `\nName: ${v.name}\n`;
+            output += `Sources:\n${v.sources.join("\n")}\n`;
+        });
+
+        output += "\n\n";
+    });
+
+    document.getElementById("output").value = output;
+}
+</script>
+
+</body>
+</html>
