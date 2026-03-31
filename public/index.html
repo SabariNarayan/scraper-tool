@@ -7,13 +7,13 @@
 <style>
 body { font-family: Arial; padding: 20px; }
 textarea, input { width: 100%; margin: 8px 0; padding: 8px; }
-button { padding: 10px; cursor: pointer; }
+button { padding: 10px; margin-right: 10px; cursor: pointer; }
 #output { height: 350px; }
 </style>
 </head>
 <body>
 
-<h2>🔎 CSR Scraper Tool (V2)</h2>
+<h2>🔎 CSR Scraper Tool (V3)</h2>
 
 <label>URLs (one per line)</label>
 <textarea id="urls"></textarea>
@@ -25,16 +25,24 @@ button { padding: 10px; cursor: pointer; }
 <input id="imageFilter" placeholder="e.g. logo">
 
 <button onclick="runScraper()">Run Scraper</button>
+<button id="csvBtn" onclick="downloadCSV()" disabled>Download CSV</button>
 
 <h3>Results</h3>
 <textarea id="output"></textarea>
 
 <script>
+let lastResults = null;
+
 async function runScraper() {
     const urls = document.getElementById("urls").value
         .split("\n")
         .map(u => u.trim())
         .filter(Boolean);
+
+    if (urls.length === 0) {
+        alert("Please enter at least one URL");
+        return;
+    }
 
     const linkFilter = document.getElementById("linkFilter").value;
     const imageFilter = document.getElementById("imageFilter").value;
@@ -46,6 +54,9 @@ async function runScraper() {
     });
 
     const data = await res.json();
+
+    // Store results
+    lastResults = data;
 
     let output = "";
 
@@ -59,7 +70,6 @@ async function runScraper() {
         output += page.images.join("\n");
 
         output += "\n\n--- VIDEOS ---\n";
-
         page.videos.forEach(v => {
             output += `\nName: ${v.name}\n`;
             output += `Sources:\n${v.sources.join("\n")}\n`;
@@ -69,6 +79,44 @@ async function runScraper() {
     });
 
     document.getElementById("output").value = output;
+
+    // Enable CSV button
+    document.getElementById("csvBtn").disabled = false;
+}
+
+function downloadCSV() {
+    if (!lastResults) {
+        alert("Run scraper first!");
+        return;
+    }
+
+    let csv = "URL,Type,Value,Sources\n";
+
+    lastResults.forEach(page => {
+
+        page.links.forEach(link => {
+            csv += `"${page.url}","link","${link}",""\n`;
+        });
+
+        page.images.forEach(img => {
+            csv += `"${page.url}","image","${img}",""\n`;
+        });
+
+        page.videos.forEach(video => {
+            csv += `"${page.url}","video","${video.name}","${video.sources.join(" | ")}"\n`;
+        });
+
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "scraper-results.csv";
+    a.click();
+
+    URL.revokeObjectURL(url);
 }
 </script>
 

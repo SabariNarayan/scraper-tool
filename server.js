@@ -21,7 +21,7 @@ async function scrapePage(url, linkFilter = "", imageFilter = "") {
 
     await page.goto(url, { waitUntil: "networkidle2" });
 
-    // Extra wait for AEM dynamic content
+    // Wait for AEM dynamic content
     await new Promise(res => setTimeout(res, 3000));
 
     const data = await page.evaluate((linkFilter, imageFilter) => {
@@ -30,7 +30,6 @@ async function scrapePage(url, linkFilter = "", imageFilter = "") {
             return !filter || value.toLowerCase().includes(filter);
         }
 
-        // 🔁 Traverse DOM + Shadow DOM
         function getAllElements(root) {
             let elements = [];
 
@@ -54,19 +53,19 @@ async function scrapePage(url, linkFilter = "", imageFilter = "") {
 
         const allElements = getAllElements(document);
 
-        // ================= LINKS =================
+        // LINKS
         const links = allElements
             .filter(el => el.tagName === "A" && el.href)
             .map(a => a.href)
             .filter(h => matchesFilter(h, linkFilter));
 
-        // ================= IMAGES =================
+        // IMAGES
         const images = allElements
             .filter(el => el.tagName === "IMG" && el.src)
             .map(img => img.src)
             .filter(s => matchesFilter(s, imageFilter));
 
-        // ================= VIDEOS (FIXED) =================
+        // VIDEOS (ROBUST UMP HANDLING)
         const videos = [];
 
         allElements
@@ -82,25 +81,18 @@ async function scrapePage(url, linkFilter = "", imageFilter = "") {
                     let videoName = null;
                     let sources = [];
 
-                    // Priority 1
                     if (json.unlocalizedTitle) {
                         videoName = json.unlocalizedTitle;
-                    }
-
-                    // Priority 2
-                    else if (json.title) {
+                    } else if (json.title) {
                         videoName = json.title;
                     }
 
-                    // Priority 3 (fallback from sources)
                     if (json.sources && json.sources.length > 0) {
                         sources = json.sources.map(s => s.src);
 
                         if (!videoName) {
                             const src = json.sources[0].src;
-                            if (src) {
-                                videoName = src.split("/").pop().split("?")[0];
-                            }
+                            videoName = src.split("/").pop().split("?")[0];
                         }
                     }
 
@@ -111,9 +103,7 @@ async function scrapePage(url, linkFilter = "", imageFilter = "") {
                         });
                     }
 
-                } catch (e) {
-                    console.log("Video parse failed", e);
-                }
+                } catch (e) {}
             });
 
         return { links, images, videos };
@@ -124,7 +114,7 @@ async function scrapePage(url, linkFilter = "", imageFilter = "") {
     return data;
 }
 
-// ================= API =================
+// API
 app.post("/scrape", async (req, res) => {
     const { urls, linkFilter, imageFilter } = req.body;
 
@@ -133,22 +123,17 @@ app.post("/scrape", async (req, res) => {
 
         for (let url of urls) {
             console.log("Scraping:", url);
-
             const data = await scrapePage(url, linkFilter, imageFilter);
-
-            results.push({
-                url,
-                ...data
-            });
+            results.push({ url, ...data });
         }
 
         res.json(results);
+
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// ================= START =================
 app.listen(3000, () => {
     console.log("🚀 Server running at http://localhost:3000");
 });
